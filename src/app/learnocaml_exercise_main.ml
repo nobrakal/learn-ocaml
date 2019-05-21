@@ -376,6 +376,14 @@ let local_save ace id =
     { ans with Answer.solution = Ace.get_contents ace;
                mtime = gettimeofday () }
 
+let add_resizer () =
+  let exotabs = find_component "learnocaml-exo-toolbar" in
+  let resize _ =
+    print_endline "HERE";
+    Manip.SetCss.width exotabs "25px" ;
+    true
+  in
+  Manip.Ev.onclick exotabs resize
 
 let () =
   Lwt.async_exception_hook := begin fun e ->
@@ -497,6 +505,7 @@ let () =
         select_tab "meta";
         true);
   (* ---- toplevel pane ------------------------------------------------- *)
+  add_resizer ();
   begin toplevel_button
       ~group: toplevel_buttons_group
       ~icon: "cleanup" [%i"Clear"] @@ fun () ->
