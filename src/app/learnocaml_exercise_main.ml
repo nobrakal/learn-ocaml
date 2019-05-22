@@ -526,13 +526,14 @@ let () =
   end ;
   (* ---- text pane ----------------------------------------------------- *)
   let text_container = find_component "learnocaml-exo-tab-text" in
+  let text_container_buttons = find_component "learnocaml-exo-tab-text-toolbar" in
   let text_iframe = Dom_html.createIframe Dom_html.document in
-  Manip.replaceChildren text_container
+  Manip.appendChildren text_container
     Tyxml_js.Html5.[ h1 [ pcdata ex_meta.Exercise.Meta.title ] ;
                      Tyxml_js.Of_dom.of_iFrame text_iframe ] ;
 
   let magnifier i =
-        button ~container:text_container ~theme:"light" ~icon:"list" ""
+        button ~container:text_container_buttons ~theme:"light" ~icon:"list" ""
     @@ fun () ->
        let iframe_body = Js.Opt.case
                    (text_iframe##.contentDocument)
