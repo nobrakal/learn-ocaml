@@ -376,6 +376,17 @@ let local_save ace id =
     { ans with Answer.solution = Ace.get_contents ace;
                mtime = gettimeofday () }
 
+let magnify_style_with elt getter setter i =
+  let fontSize_int =
+    let res = getter elt in
+    let res =
+      if res = ""
+      then "18px" (* TODO get *)
+      else res in
+    int_of_string (String.sub res 0 (String.length res - 2))
+  in
+  setter elt (string_of_int (fontSize_int + i) ^ "px")
+
 let () =
   Lwt.async_exception_hook := begin fun e ->
     Firebug.console##log (Js.string
@@ -516,29 +527,20 @@ let () =
   (* ---- text pane ----------------------------------------------------- *)
   let text_container = find_component "learnocaml-exo-tab-text" in
   let text_iframe = Dom_html.createIframe Dom_html.document in
-  let text_iframe_container = Tyxml_js.Of_dom.of_iFrame text_iframe in
   Manip.replaceChildren text_container
     Tyxml_js.Html5.[ h1 [ pcdata ex_meta.Exercise.Meta.title ] ;
-                     text_iframe_container ] ;
+                     Tyxml_js.Of_dom.of_iFrame text_iframe ] ;
 
   begin
-    button ~container:text_container ~theme:"light" ~icon:"list" "BLAB"
+    button ~container:text_container ~theme:"light" ~icon:"list" ""
     @@ fun () ->
-       let doc = Js.Opt.case
+       let iframe_body = Js.Opt.case
                    (text_iframe##.contentDocument)
                    (fun () -> failwith "cannot edit iframe document")
-                   (fun d -> d)
+                   (fun d ->  Tyxml_js.Of_dom.of_body d##.body)
        in
-       let fontSize_int =
-         let res =  Js.to_bytestring doc##.body##.style##.fontSize in
-         let res =
-           if res = ""
-           then "18px" (* TODO get *)
-           else res in
-         int_of_string (String.sub res 0 (String.length res - 2))
-       in
-       let new_size = string_of_int (fontSize_int + 2) ^"px" in
-       doc##.body##.style##.fontSize := Js.bytestring new_size;
+       magnify_style_with iframe_body Manip.Css.fontSize Manip.SetCss.fontSize 2;
+       magnify_style_with iframe_body Manip.Css.lineHeight Manip.SetCss.lineHeight 2;
        Lwt.return ()
   end;
   
