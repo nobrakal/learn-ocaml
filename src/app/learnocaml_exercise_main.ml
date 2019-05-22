@@ -532,20 +532,26 @@ let () =
     Tyxml_js.Html5.[ h1 [ pcdata ex_meta.Exercise.Meta.title ] ;
                      Tyxml_js.Of_dom.of_iFrame text_iframe ] ;
 
-  let magnifier i =
-        button ~container:text_container_buttons ~theme:"light" ~icon:"list" ""
-    @@ fun () ->
-       let iframe_body = Js.Opt.case
-                   (text_iframe##.contentDocument)
-                   (fun () -> failwith "cannot edit iframe document")
-                   (fun d ->  Tyxml_js.Of_dom.of_body d##.body)
-       in
-       magnify_style_with iframe_body Manip.Css.fontSize Manip.SetCss.fontSize i;
-       magnify_style_with iframe_body Manip.Css.lineHeight Manip.SetCss.lineHeight i;
-       Lwt.return ()
+  let magnifier_action i () =
+    let iframe_body =
+      Js.Opt.case
+        (text_iframe##.contentDocument)
+        (fun () -> failwith "cannot edit iframe document")
+        (fun d ->  Tyxml_js.Of_dom.of_body d##.body)
+    in
+    let run_magnify = magnify_style_with iframe_body in
+    run_magnify Manip.Css.fontSize Manip.SetCss.fontSize i;
+    run_magnify Manip.Css.lineHeight Manip.SetCss.lineHeight i;
+    Lwt.return ()
   in
-  magnifier 2;
+
+  let magnifier i =
+    button ~container:text_container_buttons ~theme:"dark" ~icon:"list" ""
+      (magnifier_action i)
+  in
+
   magnifier (-2);
+  magnifier 2;
   
   let prelude = Learnocaml_exercise.(decipher File.prelude exo) in
   if prelude <> "" then begin
