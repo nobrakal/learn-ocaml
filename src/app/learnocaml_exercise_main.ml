@@ -376,15 +376,6 @@ let local_save ace id =
     { ans with Answer.solution = Ace.get_contents ace;
                mtime = gettimeofday () }
 
-let add_resizer () =
-  let exotabs = find_component "learnocaml-exo-toolbar" in
-  let resize _ =
-    print_endline "HERE";
-    Manip.SetCss.width exotabs "25px" ;
-    true
-  in
-  Manip.Ev.onclick exotabs resize
-
 let () =
   Lwt.async_exception_hook := begin fun e ->
     Firebug.console##log (Js.string
@@ -505,7 +496,6 @@ let () =
         select_tab "meta";
         true);
   (* ---- toplevel pane ------------------------------------------------- *)
-  add_resizer ();
   begin toplevel_button
       ~group: toplevel_buttons_group
       ~icon: "cleanup" [%i"Clear"] @@ fun () ->
@@ -526,9 +516,32 @@ let () =
   (* ---- text pane ----------------------------------------------------- *)
   let text_container = find_component "learnocaml-exo-tab-text" in
   let text_iframe = Dom_html.createIframe Dom_html.document in
+  let text_iframe_container = Tyxml_js.Of_dom.of_iFrame text_iframe in
   Manip.replaceChildren text_container
     Tyxml_js.Html5.[ h1 [ pcdata ex_meta.Exercise.Meta.title ] ;
-                     Tyxml_js.Of_dom.of_iFrame text_iframe ] ;
+                     text_iframe_container ] ;
+
+  begin
+    button ~container:text_container ~theme:"light" ~icon:"list" "BLAB"
+    @@ fun () ->
+       let doc = Js.Opt.case
+                   (text_iframe##.contentDocument)
+                   (fun () -> failwith "cannot edit iframe document")
+                   (fun d -> d)
+       in
+       let fontSize_int =
+         let res =  Js.to_bytestring doc##.body##.style##.fontSize in
+         let res =
+           if res = ""
+           then "18px" (* TODO get *)
+           else res in
+         int_of_string (String.sub res 0 (String.length res - 2))
+       in
+       let new_size = string_of_int (fontSize_int + 2) ^"px" in
+       doc##.body##.style##.fontSize := Js.bytestring new_size;
+       Lwt.return ()
+  end;
+  
   let prelude = Learnocaml_exercise.(decipher File.prelude exo) in
   if prelude <> "" then begin
     let open Tyxml_js.Html5 in
