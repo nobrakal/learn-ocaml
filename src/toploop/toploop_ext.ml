@@ -181,22 +181,23 @@ let init_loc lb filename =
   Location.input_lexbuf := Some lb;
   Location.init lb filename
 
-(** *)
-
-let execute_with_exn ?ppf_code ?(print_outcome  = true) ~ppf_answer code =
-  let code = normalize code in
-  let lb =
-    match ppf_code with
-    | Some ppf_code -> Lexing.from_function (refill_lexbuf code ppf_code)
-    | None -> Lexing.from_string code in
-  let wasExn = ref None in
+let register_exn_listner wasExn =
   let updWasExn _ v =
     wasExn :=
       match v with
       | Outcometree.Ophr_exception (e,_) -> Some e
       | _ -> None
   in
-  Toploop.print_out_phrase := updWasExn;
+  Toploop.print_out_phrase := updWasExn
+
+let execute_detailed ?ppf_code ?(print_outcome  = true) ~ppf_answer code =
+  let code = normalize code in
+  let lb =
+    match ppf_code with
+    | Some ppf_code -> Lexing.from_function (refill_lexbuf code ppf_code)
+    | None -> Lexing.from_string code in
+  let wasExn = ref None in
+  register_exn_listner wasExn;
   init_loc lb "//toplevel//";
   warnings := [];
   let rec loop () =
@@ -207,9 +208,10 @@ let execute_with_exn ?ppf_code ?(print_outcome  = true) ~ppf_answer code =
     if success
     then loop ()
     else
-      match !wasExn with
-      | None -> return_success Fail
-      | Some e -> return_success (Exn e) in
+      return_success @@
+        match !wasExn with
+        | None -> Fail
+        | Some e -> Exn e in
   try let res = loop () in flush_all () ; res
   with
   | End_of_file ->
@@ -230,19 +232,13 @@ let detailed_to_bool (x : detailed toplevel_result) : bool toplevel_result =
      in Ok (newres, lst)
 
 let execute ?ppf_code ?(print_outcome = true) ~ppf_answer code =
-  detailed_to_bool @@ execute_with_exn ?ppf_code ~print_outcome ~ppf_answer code
-      
+  detailed_to_bool @@ execute_detailed ?ppf_code ~print_outcome ~ppf_answer code
+
 let use_string_detailed
     ?(filename = "//toplevel//") ?(print_outcome  = true) ~ppf_answer code =
   let lb = Lexing.from_string code in
   let wasExn = ref None in
-  let updWasExn _ v =
-    wasExn :=
-      match v with
-      | Outcometree.Ophr_exception (e,_) -> Some e
-      | _ -> None
-  in
-  Toploop.print_out_phrase := updWasExn;
+  register_exn_listner wasExn;
   init_loc lb filename;
   warnings := [];
   try
@@ -299,13 +295,7 @@ let use_mod_string_detailed
       "Learnocaml_toplevel_toploop.use_mod_string: \
        the module name must start with a capital letter.";
   let wasExn = ref None in
-  let updWasExn _ v =
-    wasExn :=
-      match v with
-      | Outcometree.Ophr_exception (e,_) -> Some e
-      | _ -> None
-  in
-  Toploop.print_out_phrase := updWasExn;
+  register_exn_listner wasExn;
   warnings := [];
   try
     let phr =
@@ -360,4 +350,3 @@ let check ?(setenv = false) code =
   with
   | End_of_file -> return_success ()
   | exn -> return_exn exn
-

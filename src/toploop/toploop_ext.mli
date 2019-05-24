@@ -39,7 +39,7 @@ and loc = Toploop_results.loc = {
 *)
 val check: ?setenv:bool -> string -> unit toplevel_result
 
-val execute:
+val execute_detailed:
   ?ppf_code:Format.formatter ->
   ?print_outcome:bool ->
   ppf_answer:Format.formatter ->
@@ -71,7 +71,7 @@ val execute:
   ?print_outcome:bool ->
   ppf_answer:Format.formatter ->
   string -> bool toplevel_result
-  
+
 val use_string_detailed:
   ?filename:string ->
   ?print_outcome:bool ->
@@ -103,7 +103,7 @@ val use_mod_string_detailed:
   modname:string ->
   ?sig_code:string ->
   string -> detailed toplevel_result
-  
+
 (** Wrap a given source code into a module and bind it with a given
     name.
 
