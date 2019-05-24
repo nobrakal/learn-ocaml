@@ -6,6 +6,11 @@
  * Learn-OCaml is distributed under the terms of the MIT license. See the
  * included LICENSE file for details. *)
 
+type detailed =
+  | Success
+  | Exn of exn
+  | Fail
+
 type 'a toplevel_result = 'a Toploop_results.toplevel_result =
   (* ('a * warning list, error * warning list) result = *)
   | Ok of 'a * warning list
@@ -34,6 +39,11 @@ and loc = Toploop_results.loc = {
 *)
 val check: ?setenv:bool -> string -> unit toplevel_result
 
+val execute:
+  ?ppf_code:Format.formatter ->
+  ?print_outcome:bool ->
+  ppf_answer:Format.formatter ->
+  string -> detailed toplevel_result
 
 (** Execute a given source code. The evaluation stops after the
     first toplevel phrase (as terminated by ";;") that fails to
@@ -61,7 +71,12 @@ val execute:
   ?print_outcome:bool ->
   ppf_answer:Format.formatter ->
   string -> bool toplevel_result
-
+  
+val use_string_detailed:
+  ?filename:string ->
+  ?print_outcome:bool ->
+  ppf_answer:Format.formatter ->
+  string -> detailed toplevel_result
 
 (** Execute a given source code. The code is parsed all at once
     before to typecheck/compile/evaluate phrase by phrase.
@@ -81,6 +96,14 @@ val use_string:
   ppf_answer:Format.formatter ->
   string -> bool toplevel_result
 
+val use_mod_string_detailed:
+  ?filename:string ->
+  ?print_outcome:bool ->
+  ppf_answer:Format.formatter ->
+  modname:string ->
+  ?sig_code:string ->
+  string -> detailed toplevel_result
+  
 (** Wrap a given source code into a module and bind it with a given
     name.
 

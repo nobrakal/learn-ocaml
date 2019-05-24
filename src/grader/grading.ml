@@ -79,15 +79,21 @@ let get_grade
   let handle_error ?(warn = fun _ -> ()) fail =
     function
     | Toploop_ext.Ok (s, w) ->
-        warn w ;
-        if not s then begin
-          !flush_stderr () ;
-          !flush_stdout () ;
-          let msg =
-            String.concat "\n"
-              (List.map Buffer.contents [stderr_buffer; stdout_buffer; outcomes_buffer])
-          in fail { Toploop_ext.msg ; locs = [] ; if_highlight = msg }
-        end
+       warn w ;
+       begin
+         match s with
+         | Toploop_ext.Success -> ()
+         | Toploop_ext.Exn e ->
+            let msg = Printexc.to_string e in
+            fail { Toploop_ext.msg ; locs = [] ; if_highlight = msg }
+         | Toploop_ext.Fail ->
+            !flush_stderr () ;
+            !flush_stdout () ;
+            let msg =
+              String.concat "\n"
+                (List.map Buffer.contents [stderr_buffer; stdout_buffer; outcomes_buffer])
+            in fail { Toploop_ext.msg ; locs = [] ; if_highlight = msg }
+       end
     | Toploop_ext.Error (err, w) ->
         warn w ;
         !flush_stderr () ;
@@ -96,27 +102,27 @@ let get_grade
 
   let result = try
       handle_error (internal_error [%i"while preparing the tests"]) @@
-      Toploop_ext.use_string ~print_outcome ~ppf_answer
+      Toploop_ext.use_string_detailed ~print_outcome ~ppf_answer
         {|let print_html _ = assert false|};
 
       set_progress [%i"Loading the prelude."] ;
       handle_error (internal_error [%i"while loading the prelude"]) @@
-      Toploop_ext.use_string ~print_outcome ~ppf_answer ~filename:(file "prelude.ml")
+      Toploop_ext.use_string_detailed ~print_outcome ~ppf_answer ~filename:(file "prelude.ml")
         (Learnocaml_exercise.(decipher File.prelude exo)) ;
 
       set_progress [%i"Preparing the test environment."] ;
       handle_error (internal_error [%i"while preparing the tests"]) @@
-      Toploop_ext.use_string ~print_outcome ~ppf_answer ~filename:(file "prepare.ml")
+      Toploop_ext.use_string_detailed ~print_outcome ~ppf_answer ~filename:(file "prepare.ml")
         (Learnocaml_exercise.(decipher File.prepare exo)) ;
 
       set_progress [%i"Loading your code."] ;
       handle_error user_code_error @@
-      Toploop_ext.use_mod_string ~print_outcome ~ppf_answer ~modname:"Code"
+      Toploop_ext.use_mod_string_detailed ~print_outcome ~ppf_answer ~modname:"Code"
         ~filename:(file "solution.ml") code ;
 
       set_progress [%i"Loading the solution."] ;
       handle_error (internal_error [%i"while loading the solution"]) @@
-      Toploop_ext.use_mod_string ~print_outcome ~ppf_answer ~modname:"Solution"
+      Toploop_ext.use_mod_string_detailed ~print_outcome ~ppf_answer ~modname:"Solution"
         (Learnocaml_exercise.(decipher File.solution exo)) ;
 
       set_progress [%i"Preparing to launch the tests."] ;
@@ -131,7 +137,7 @@ let get_grade
         set_progress ;
       Introspection.insert_in_env "timeout" [%ty: int option] timeout ;
       handle_error (internal_error [%i"while preparing the tests"]) @@
-      Toploop_ext.use_string ~print_outcome ~ppf_answer
+      Toploop_ext.use_string_detailed ~print_outcome ~ppf_answer
         "module Test_lib = Test_lib.Make(struct\n\
         \  let results = results\n\
         \  let set_progress = set_progress\n\
@@ -139,11 +145,11 @@ let get_grade
         \  module Introspection = Introspection\n\
          end)" ;
       handle_error (internal_error [%i"while preparing the tests"]) @@
-      Toploop_ext.use_string ~print_outcome ~ppf_answer
+      Toploop_ext.use_string_detailed ~print_outcome ~ppf_answer
         "module Report = Learnocaml_report" ;
       set_progress [%i"Launching the test bench."] ;
       handle_error (internal_error [%i"while testing your solution"]) @@
-      Toploop_ext.use_string ~print_outcome ~ppf_answer ~filename:(file "test.ml")
+      Toploop_ext.use_string_detailed ~print_outcome ~ppf_answer ~filename:(file "test.ml")
         (Learnocaml_exercise.(decipher File.test exo)) ;
 
       (* Memory cleanup... *)

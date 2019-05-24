@@ -6,6 +6,11 @@
  * Learn-OCaml is distributed under the terms of the MIT license. See the
  * included LICENSE file for details. *)
 
+type detailed =
+  | Success
+  | Exn of exn
+  | Fail
+
 type 'a toplevel_result = 'a Toploop_results.toplevel_result =
   (* ('a * warning list, error * warning list) result = *)
   | Ok of 'a * warning list
@@ -178,12 +183,20 @@ let init_loc lb filename =
 
 (** *)
 
-let execute ?ppf_code ?(print_outcome  = true) ~ppf_answer code =
+let execute_with_exn ?ppf_code ?(print_outcome  = true) ~ppf_answer code =
   let code = normalize code in
   let lb =
     match ppf_code with
     | Some ppf_code -> Lexing.from_function (refill_lexbuf code ppf_code)
     | None -> Lexing.from_string code in
+  let wasExn = ref None in
+  let updWasExn _ v =
+    wasExn :=
+      match v with
+      | Outcometree.Ophr_exception (e,_) -> Some e
+      | _ -> None
+  in
+  Toploop.print_out_phrase := updWasExn;
   init_loc lb "//toplevel//";
   warnings := [];
   let rec loop () =
@@ -191,19 +204,45 @@ let execute ?ppf_code ?(print_outcome  = true) ~ppf_answer code =
     let phr = Ppx.preprocess_phrase phr in
     let success = Toploop.execute_phrase print_outcome ppf_answer phr in
     Format.pp_print_flush ppf_answer ();
-    if success then loop () else return_success false in
+    if success
+    then loop ()
+    else
+      match !wasExn with
+      | None -> return_success Fail
+      | Some e -> return_success (Exn e) in
   try let res = loop () in flush_all () ; res
   with
   | End_of_file ->
       flush_all ();
-      return_success true
+      return_success Success
   | exn ->
       flush_all ();
       return_error (error_of_exn exn)
 
-let use_string
+let detailed_to_bool (x : detailed toplevel_result) : bool toplevel_result =
+  match x with
+  | Error (a,b) -> Error (a,b)
+  | Ok (res,lst) ->
+     let newres =
+       match res with
+       | Success | Exn _ -> true
+       | _ -> false
+     in Ok (newres, lst)
+
+let execute ?ppf_code ?(print_outcome = true) ~ppf_answer code =
+  detailed_to_bool @@ execute_with_exn ?ppf_code ~print_outcome ~ppf_answer code
+      
+let use_string_detailed
     ?(filename = "//toplevel//") ?(print_outcome  = true) ~ppf_answer code =
   let lb = Lexing.from_string code in
+  let wasExn = ref None in
+  let updWasExn _ v =
+    wasExn :=
+      match v with
+      | Outcometree.Ophr_exception (e,_) -> Some e
+      | _ -> None
+  in
+  Toploop.print_out_phrase := updWasExn;
   init_loc lb filename;
   warnings := [];
   try
@@ -215,15 +254,21 @@ let use_string
            Format.pp_print_flush ppf_answer ())
       (List.map Ppx.preprocess_phrase (!Toploop.parse_use_file lb)) ;
     flush_all ();
-    return_success true
+    return_success Success
   with
   | Exit ->
-      flush_all ();
-      Format.pp_print_flush ppf_answer ();
-      return_success false
+     flush_all ();
+     Format.pp_print_flush ppf_answer ();
+     return_success (match !wasExn with
+      | None ->  Fail
+      | Some e -> Exn e)
   | exn ->
       flush_all ();
       return_error (error_of_exn exn)
+
+let use_string
+      ?(filename = "//toplevel//") ?(print_outcome = true) ~ppf_answer code =
+   detailed_to_bool @@ use_string_detailed ~filename ~print_outcome ~ppf_answer code
 
 let parse_mod_string ?filename modname sig_code impl_code =
   let open Parsetree in
@@ -245,7 +290,7 @@ let parse_mod_string ?filename modname sig_code impl_code =
         Mod.constraint_ (Mod.structure str) (Mty.signature s) in
   Ptop_def [ Str.module_ (Mb.mk (Location.mknoloc modname) m) ]
 
-let use_mod_string
+let use_mod_string_detailed
     ?filename
     ?(print_outcome  = true) ~ppf_answer ~modname ?sig_code
     impl_code =
@@ -253,6 +298,14 @@ let use_mod_string
     invalid_arg
       "Learnocaml_toplevel_toploop.use_mod_string: \
        the module name must start with a capital letter.";
+  let wasExn = ref None in
+  let updWasExn _ v =
+    wasExn :=
+      match v with
+      | Outcometree.Ophr_exception (e,_) -> Some e
+      | _ -> None
+  in
+  Toploop.print_out_phrase := updWasExn;
   warnings := [];
   try
     let phr =
@@ -261,10 +314,21 @@ let use_mod_string
     let res = Toploop.execute_phrase print_outcome ppf_answer phr in
     Format.pp_print_flush ppf_answer ();
     flush_all ();
-    return_success res
+    return_success
+      (if res
+       then Success
+       else match !wasExn with
+         | None -> Fail
+         | Some e -> Exn e)
   with exn ->
     flush_all ();
     return_error (error_of_exn exn)
+
+let use_mod_string
+    ?filename
+    ?(print_outcome  = true) ~ppf_answer ~modname ?sig_code
+    impl_code =
+  detailed_to_bool @@ use_mod_string_detailed ?filename ~print_outcome ~ppf_answer ~modname ?sig_code impl_code
 
 (* Extracted from the "execute" function in "ocaml/toplevel/toploop.ml" *)
 let check_phrase env = function
