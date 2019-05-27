@@ -87,6 +87,20 @@ and inline =
   | Code of string
   | Output of string
 
+let status_meaning = function
+  | Success n -> (n, false)
+  | Penalty n -> (-n, false)
+  | Failure -> (0, true)
+  | Warning | Informative | Important -> (0, false)
+
+let string_of_status = function
+  | Success _ -> "success"
+  | Penalty _ -> "penalty"
+  | Failure -> "failure"
+  | Warning -> "warning"
+  | Informative -> "informative"
+  | Important -> "important"
+
 let result items =
   let rec do_report items =
     List.fold_left (fun (successes, failures) item ->
@@ -94,12 +108,7 @@ let result items =
         (successes + isuccesses, failures || ifailures))
       (0, false) items
   and do_item = function
-    | Message (_text, status) ->
-        begin match status with
-        | Success n -> (n, false)
-        | Penalty n -> (-n, false)
-        | Failure -> (0, true)
-        | Warning | Informative | Important -> (0, false) end
+    | Message (_text, status) -> status_meaning status
     | Section (_title, contents) ->
         do_report contents in
   do_report items
@@ -192,21 +201,20 @@ let format items =
     (result, List.rev items)
   and format_item = function
     | Message (text, status) ->
-        let result, result_class, score = match status with
-          | Success 1 -> (1, false), "success", Some "1 pt"
-          | Success n -> (n, false), "success", Some (string_of_int n ^ " pts")
-          | Penalty 1 -> (-1, false), "penalty", Some "(-1) pt"
-          | Penalty n -> (-n, false), "penalty", Some ("(-" ^ string_of_int n ^ ") pts")
-          | Failure -> (0, true), "failure", Some "0 pt"
-          | Warning -> (0, false), "warning", None
-          | Informative -> (0, false), "informative", None
-          | Important -> (0, false), "important", None in
-        result,
-        E ("p", [ "class", "message " ^ result_class ],
-           [ E ("span", [ "class", "text" ],
-                match score with
-                | None -> format_text text
-                | Some score -> E ("span", [ "class", "score" ], [ T score ]) :: format_text text) ])
+       let result_class = string_of_status status in
+       let ((pts,is_fail) as result)  = status_meaning status in
+       let score =
+         let inner_score = 
+           if pts != 0 || is_fail
+           then
+             let suffix = if abs pts > 1 then "pts" else "pt" in
+             let score = string_of_int pts ^ " " ^ suffix in
+             E ("span", [ "class", "score" ], [ T score ]) :: format_text text
+           else format_text text in
+         E ("p", [ "class", "message " ^ result_class ],
+            [ E ("span", [ "class", "text" ], inner_score)])
+       in
+       result,score
     | Section (title, contents) ->
         let result, formatted_report = format_report contents in
         let result_class, score, folder = match result with
