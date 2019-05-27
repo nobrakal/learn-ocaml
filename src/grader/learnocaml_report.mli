@@ -18,6 +18,7 @@ and item =
 
 and status =
   | Success of int (** With given points *)
+  | Penalty of int (** With taken points *)
   | Failure (** With missed points *)
   | Warning (** A student error without influence on the grade *)
   | Informative (** A message for the student *)

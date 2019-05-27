@@ -367,7 +367,7 @@ let console_report ?(verbose=false) ex report =
   let rec all_good report =
     (List.for_all @@ function
       | Section (_, report) -> all_good report
-      | Message (_, (Success _ | Informative | Warning | Important)) -> true
+      | Message (_, (Success _ | Penalty _ | Informative | Warning | Important)) -> true
       | Message (_, Failure) -> false)
       report
   in
@@ -387,6 +387,8 @@ let console_report ?(verbose=false) ex report =
           "\n" ^ block ~title ~no_open:true
             (String.concat "\n" @@ List.map format_item report)
     | Message (text, Success i) ->
+       print_score i ^ "   " ^ format_text text
+    | Message (text, Penalty i) ->
         print_score i ^ "   " ^ format_text text
     | Message (text, Failure) ->
         print_score 0 ^ "   " ^ format_text text

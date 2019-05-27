@@ -255,6 +255,10 @@ msgstr "@[<v 2>Important: %a@]"
 msgid "@[<v 2>Success %d: %a@]"
 msgstr "@[<v 2>Réussite %d: %a@]"
 
+#: src/grader/learnocaml_report.ml:533,58--83
+msgid "@[<v 2>Penalty %d: %a@]"
+msgstr "@[<v 2>Pénalité %d: %a@]"
+
 #: src/app/learnocaml_common.ml:76,21--37
 msgid "INTERNAL ERROR"
 msgstr "ERREUR INTERNE"

@@ -76,7 +76,7 @@ and item =
   | Message of text * status
 
 and status =
-  | Success of int | Failure
+  | Success of int | Penalty of int | Failure
   | Warning | Informative | Important
 
 and text = inline list
@@ -96,9 +96,10 @@ let result items =
   and do_item = function
     | Message (_text, status) ->
         begin match status with
-          | Success n -> (n, false)
-          | Failure -> (0, true)
-          | Warning | Informative | Important -> (0, false) end
+        | Success n -> (n, false)
+        | Penalty n -> (-n, false)
+        | Failure -> (0, true)
+        | Warning | Informative | Important -> (0, false) end
     | Section (_title, contents) ->
         do_report contents in
   do_report items
@@ -139,7 +140,7 @@ let enc =
                          "warning", Warning ;
                          "informative", Informative ;
                          "important", Important ])
-          (function Success _ -> None | v -> Some v)
+          (function Success _ | Penalty _ -> None | v -> Some v)
           (function v -> v)
       ]
   in
@@ -190,6 +191,8 @@ let format items =
         let result, result_class, score = match status with
           | Success 1 -> (1, false), "success", Some "1 pt"
           | Success n -> (n, false), "success", Some (string_of_int n ^ " pts")
+          | Penalty 1 -> (-1, false), "penalty", Some "(-1) pt"
+          | Penalty n -> (-n, false), "penalty", Some ("(-" ^ string_of_int n ^ ") pts")
           | Failure -> (0, true), "failure", Some "0 pt"
           | Warning -> (0, false), "warning", None
           | Informative -> (0, false), "informative", None
@@ -522,6 +525,7 @@ let print ppf items =
     | Message (text, Informative) -> Format.fprintf ppf "@[<v 2>%a@]" print_text text
     | Message (text, Important) -> Format.fprintf ppf [%if"@[<v 2>Important: %a@]"] print_text text
     | Message (text, Success n) -> Format.fprintf ppf [%if"@[<v 2>Success %d: %a@]"] n print_text text
+    | Message (text, Penalty n) -> Format.fprintf ppf [%if"@[<v 2>Penalty %d: %a@]"] n print_text text
   and print_text ppf = function
     | (Code wa | Output wa) :: Text wb :: rest when not (String.contains (String.trim wa) '\n') ->
         print_text ppf (Text ("[" ^ String.trim wa ^ "] " ^ wb) :: rest)
