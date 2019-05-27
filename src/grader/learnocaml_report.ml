@@ -136,6 +136,10 @@ let enc =
           (function Success n -> Some n | _ -> None)
           (fun n -> Success n) ;
         case
+          int
+          (function Penalty n -> Some (-n) | _ -> None)
+          (fun n -> Penalty n) ;
+        case
           (string_enum [ "failure", Failure ;
                          "warning", Warning ;
                          "informative", Informative ;
@@ -576,6 +580,8 @@ let split_text str =
 
 let success ~points ~message =
   Message (split_text message, Success points)
+let penalty ~points ~message =
+  Message (split_text message, Penalty points)
 let failure ~message =
   Message (split_text message, Failure)
 let message ~message =

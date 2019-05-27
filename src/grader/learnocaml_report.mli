@@ -53,6 +53,7 @@ val enc : t Json_encoding.encoding
 
 val failure : message:string -> item
 val success : points:int -> message:string -> item
+val penalty : points:int -> message:string -> item
 val warning : message:string -> item
 val message : message:string -> item
 val info : message:string -> item
