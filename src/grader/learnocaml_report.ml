@@ -138,7 +138,7 @@ let enc =
         case
           int
           (function Penalty n -> Some (-n) | _ -> None)
-          (fun n -> Penalty n) ;
+          (fun n -> Penalty (-n)) ;
         case
           (string_enum [ "failure", Failure ;
                          "warning", Warning ;
