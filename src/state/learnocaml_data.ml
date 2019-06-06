@@ -1167,9 +1167,3 @@ module Tutorial = struct
 
   end
 end
-
-module Pdf = struct
-  type t = bytes
-
-  let enc = J.bytes
-end

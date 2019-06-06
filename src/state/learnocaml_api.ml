@@ -35,7 +35,7 @@ type _ request =
   | Exercise_index:
       'a token -> (Exercise.Index.t * (Exercise.id * float) list) request
   | Pdf_of_exercises:
-      'a token -> Pdf.t request
+      'a token -> string request
   | Exercise:
       'a token * string -> (Exercise.Meta.t * Exercise.t * float option) request
 
@@ -108,7 +108,7 @@ module Conversions (Json: JSON_CODEC) = struct
       | Exercise_index _ ->
          json (J.tup2 Exercise.Index.enc (J.assoc J.float))
       | Pdf_of_exercises _ ->
-         json Pdf.enc
+         str
       | Exercise _ ->
           json (J.tup3 Exercise.Meta.enc Exercise.enc (J.option J.float))
       | Lesson_index _ ->
@@ -187,7 +187,7 @@ module Conversions (Json: JSON_CODEC) = struct
     | Exercise_index token ->
         get ~token ["exercise-index.json"]
     | Pdf_of_exercises token ->
-        get ~token ["pdf_of_exercises"]
+        get ~token ["exercises.pdf"]
     | Exercise (token, id) ->
         get ~token ("exercises" :: String.split_on_char '/' (id^".json"))
 
@@ -293,7 +293,7 @@ module Server (Json: JSON_CODEC) (Rh: REQUEST_HANDLER) = struct
 
       | `GET, ["exercise-index.json"], Some token ->
          Exercise_index token |> k
-      | `GET, ["pdf_of_exercises"], Some token ->
+      | `GET, ["exercises.pdf"], Some token ->
           Pdf_of_exercises token |> k
       | `GET, ("exercises"::path), token ->
           (match last path with

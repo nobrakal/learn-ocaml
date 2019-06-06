@@ -390,15 +390,15 @@ module Request_handler = struct
                let endt = ["-s";"-o";outtmp] in
                let arr  = Array.of_list (soft @ files @ endt) in
                Lwt_process.exec ("",arr)
-             >>= fun _ -> (*TODO HANDLE ERRORS *)
-               let inchan = open_in_bin outtmp in
-               let len = in_channel_length inchan in
-               let res = Bytes.create len in
-               let _ = input inchan res 0 (len - 1) in
-               (* Cleanup *)
+            >>= fun _ -> (*TODO HANDLE ERRORS *)
+               Lwt_io.with_file ~mode:Lwt_io.input outtmp Lwt_io.read
+            >>= fun contents -> (* TODO lwt *)
                List.iter Sys.remove files;
                Sys.remove outtmp;
-               respond_json cache res
+               Lwt.return @@
+                 Response { contents = contents;
+                            content_type = "application/pdf";
+                            caching = Nocache }
       | Api.Exercise (token, id) ->
           (Exercise.Status.is_open id token >>= function
           | `Open | `Deadline _ as o ->

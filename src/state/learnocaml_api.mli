@@ -51,7 +51,7 @@ type _ request =
   | Exercise_index:
       'a token -> (Exercise.Index.t * (Exercise.id * float) list) request
   | Pdf_of_exercises:
-      'a token -> Pdf.t request
+      'a token -> string request
   | Exercise:
       'a token * string -> (Exercise.Meta.t * Exercise.t * float option) request
 
