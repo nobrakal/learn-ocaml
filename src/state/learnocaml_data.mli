@@ -369,5 +369,10 @@ module Tutorial: sig
     val enc: t Json_encoding.encoding
 
   end
+end
 
+module Pdf : sig
+  type t = Pdf of bytes
+
+  val enc : t Json_encoding.encoding
 end

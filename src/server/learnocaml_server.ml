@@ -356,6 +356,46 @@ module Request_handler = struct
                            k true)
                     index (fun index -> Lwt.return (index, !deadlines)))
           >>= respond_json cache
+      | Api.Pdf_of_exercises token ->
+          Token.check_teacher token >>= fun b ->
+          Exercise.Index.get () >>= fun index ->
+          (if b
+          then Lwt.return index
+          else (* TODO facto this *)
+            Exercise.Index.filterk
+              (fun id _ k ->
+                Exercise.Status.is_open id token >>= function
+                | `Open -> k true
+                | `Closed -> k false
+                | `Deadline t -> if t > 0. then k true else k false)
+              index Lwt.return)
+            >>= fun index ->
+            let lst =
+              Exercise.Index.fold_exercises (fun acc id _ -> id::acc) [] index
+            in Lwt_list.map_s Exercise.get lst
+            >>= fun lst ->
+               let files =
+                 List.map
+                   (fun x ->
+                     let to_write = snd @@ List.hd @@ Learnocaml_exercise.(access File.descr x) in (*TODO EXPT*)
+                     let str,out_c = Filename.open_temp_file "" ".html"
+                     in output_string out_c to_write; close_out out_c; str)
+                   lst
+               in
+               let outtmp = Filename.temp_file "" ".pdf" in
+               let soft = ["pandoc"] in
+               let endt = ["-s";"-o";outtmp] in
+               let arr  = Array.of_list (soft @ files @ endt) in
+               Lwt_process.exec ("",arr)
+             >>= fun _ -> (*TODO HANDLE ERRORS *)
+               let inchan = open_in_bin outtmp in
+               let len = in_channel_length inchan in
+               let res = Bytes.create len in
+               let _ = input inchan res 0 (len - 1) in
+               (* Cleanup *)
+               List.iter Sys.remove files;
+               Sys.remove outtmp;
+               respond_json cache (Pdf.Pdf res)
       | Api.Exercise (token, id) ->
           (Exercise.Status.is_open id token >>= function
           | `Open | `Deadline _ as o ->

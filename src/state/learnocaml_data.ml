@@ -1166,5 +1166,16 @@ module Tutorial = struct
       J.(obj1 (req "series" (assoc series_enc)))
 
   end
+end
 
+module Pdf = struct
+  type t = Pdf of bytes
+
+  let enc =
+    J.union [
+        J.case
+          J.bytes
+          (function Pdf p -> Some p)
+          (fun p -> Pdf p);
+      ]
 end
