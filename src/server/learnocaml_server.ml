@@ -358,18 +358,21 @@ module Request_handler = struct
           >>= respond_json cache
       | Api.Pdf_of_exercises token ->
           Token.check_teacher token >>= fun b ->
-          Exercise.Index.get () >>= fun index ->
-          (if b
-          then Lwt.return index
-          else (* TODO facto this *)
-            Exercise.Index.filterk
-              (fun id _ k ->
-                Exercise.Status.is_open id token >>= function
-                | `Open -> k true
-                | `Closed -> k false
-                | `Deadline t -> if t > 0. then k true else k false)
-              index Lwt.return)
-            >>= fun index ->
+          let refine_index index =
+            if b
+            then Lwt.return index
+            else (* TODO facto this *)
+              Exercise.Index.filterk
+                (fun id _ k ->
+                  Exercise.Status.is_open id token >>= function
+                  | `Open -> k true
+                  | `Closed -> k false
+                  | `Deadline t -> k (t > 0.))
+                index Lwt.return
+          in
+          Exercise.Index.get ()
+          >>= refine_index
+          >>= fun index ->
             let lst =
               Exercise.Index.fold_exercises (fun acc id _ -> id::acc) [] index
             in Lwt_list.map_s Exercise.get lst
@@ -395,7 +398,7 @@ module Request_handler = struct
                (* Cleanup *)
                List.iter Sys.remove files;
                Sys.remove outtmp;
-               respond_json cache (Pdf.Pdf res)
+               respond_json cache res
       | Api.Exercise (token, id) ->
           (Exercise.Status.is_open id token >>= function
           | `Open | `Deadline _ as o ->

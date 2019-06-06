@@ -1169,13 +1169,7 @@ module Tutorial = struct
 end
 
 module Pdf = struct
-  type t = Pdf of bytes
+  type t = bytes
 
-  let enc =
-    J.union [
-        J.case
-          J.bytes
-          (function Pdf p -> Some p)
-          (fun p -> Pdf p);
-      ]
+  let enc = J.bytes
 end

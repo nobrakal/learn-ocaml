@@ -372,7 +372,7 @@ module Tutorial: sig
 end
 
 module Pdf : sig
-  type t = Pdf of bytes
+  type t = bytes
 
   val enc : t Json_encoding.encoding
 end
