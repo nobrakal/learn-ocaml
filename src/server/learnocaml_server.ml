@@ -361,7 +361,7 @@ module Request_handler = struct
           let refine_index index =
             if b
             then Lwt.return index
-            else (* TODO facto this *)
+            else
               Exercise.Index.filterk
                 (fun id _ k ->
                   Exercise.Status.is_open id token >>= function
@@ -374,31 +374,32 @@ module Request_handler = struct
           >>= refine_index
           >>= fun index ->
             let lst =
-              Exercise.Index.fold_exercises (fun acc id _ -> id::acc) [] index
-            in Lwt_list.map_s Exercise.get lst
-            >>= fun lst ->
-               let files =
-                 List.map
-                   (fun x ->
-                     let to_write = snd @@ List.hd @@ Learnocaml_exercise.(access File.descr x) in (*TODO EXPT*)
-                     let str,out_c = Filename.open_temp_file "" ".html"
-                     in output_string out_c to_write; close_out out_c; str)
-                   lst
-               in
-               let outtmp = Filename.temp_file "" ".pdf" in
-               let soft = ["pandoc"] in
-               let endt = ["-s";"-o";outtmp] in
-               let arr  = Array.of_list (soft @ files @ endt) in
-               Lwt_process.exec ("",arr)
-            >>= fun _ -> (*TODO HANDLE ERRORS *)
-               Lwt_io.with_file ~mode:Lwt_io.input outtmp Lwt_io.read
-            >>= fun contents -> (* TODO lwt *)
-               List.iter Sys.remove files;
-               Sys.remove outtmp;
-               Lwt.return @@
-                 Response { contents = contents;
-                            content_type = "application/pdf";
-                            caching = Nocache }
+              Exercise.Index.fold_exercises
+                (fun acc id m -> (Exercise.Meta.(m.title), id)::acc) [] index
+            in Lwt_list.map_s
+                 (fun (u,v) -> Exercise.get v >>= fun v -> Lwt.return (u,v)) lst
+          >>= fun lst ->
+            let lst = List.rev lst in
+            let pandocin,out_c = Filename.open_temp_file "" ".html" in
+            List.iter
+              (fun (title,exo) ->
+                let to_write = snd @@ List.hd @@ Learnocaml_exercise.(access File.descr exo) in (*TODO WHY*)
+                output_string out_c ("<h1>" ^ title ^ "</h1>");
+                output_string out_c to_write)
+              lst;
+            close_out out_c;
+            let pandocout = Filename.temp_file "" ".pdf" in
+            let arr  = Array.of_list ["pandoc";pandocin;"-s";"-o";pandocout] in
+            Lwt_process.exec ("",arr)
+          >>= fun _ -> (*TODO HANDLE ERRORS *)
+            Lwt_io.with_file ~mode:Lwt_io.input pandocout Lwt_io.read
+          >>= fun contents ->
+            Sys.remove pandocin;
+            Sys.remove pandocout;
+            Lwt.return @@
+              Response { contents = contents;
+                         content_type = "application/pdf";
+                         caching = Nocache }
       | Api.Exercise (token, id) ->
           (Exercise.Status.is_open id token >>= function
           | `Open | `Deadline _ as o ->
