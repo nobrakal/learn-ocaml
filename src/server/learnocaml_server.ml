@@ -358,6 +358,12 @@ module Request_handler = struct
                     index (fun index -> Lwt.return (index, !deadlines)))
           >>= respond_json cache
       | Api.Pdf_of_exercises token ->
+          Token.exists token >>= fun b ->
+          if not b
+          then
+            Lwt.return (Status {code = `Not_found;
+                                body = "token not found"})
+          else
           Token.check_teacher token >>= fun b ->
           let refine_index index =
             if b
