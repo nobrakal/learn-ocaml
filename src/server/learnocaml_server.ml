@@ -380,26 +380,29 @@ module Request_handler = struct
                  (fun (u,v) -> Exercise.get v >>= fun v -> Lwt.return (u,v)) lst
           >>= fun lst ->
             let lst = List.rev lst in
-            let pandocin,out_c = Filename.open_temp_file "" ".html" in
-            List.iter
-              (fun (title,exo) ->
-                let to_write = snd @@ List.hd @@ Learnocaml_exercise.(access File.descr exo) in (*TODO WHY*)
-                output_string out_c ("<h1>" ^ title ^ "</h1>");
-                output_string out_c to_write)
-              lst;
-            close_out out_c;
-            let pandocout = Filename.temp_file "" ".pdf" in
-            let arr  = Array.of_list ["pandoc";pandocin;"-s";"-o";pandocout] in
-            Lwt_process.exec ("",arr)
-          >>= fun _ -> (*TODO HANDLE ERRORS *)
-            Lwt_io.with_file ~mode:Lwt_io.input pandocout Lwt_io.read
-          >>= fun contents ->
-            Sys.remove pandocin;
-            Sys.remove pandocout;
-            Lwt.return @@
-              Response { contents = contents;
-                         content_type = "application/pdf";
-                         caching = Nocache }
+             Lwt_io.with_temp_file
+               ( fun (pandocin,out_c) ->
+                 let lst = List.rev lst in
+                 Lwt_list.iter_s
+                   (fun (title,exo) ->
+                     let to_write = snd @@ List.hd @@ Learnocaml_exercise.(access File.descr exo) in (* TODO WHY snd/hd *)
+                     Lwt_io.write out_c ("<h1>" ^ title ^ "</h1>\n" ^ to_write))
+                   lst
+                 >>= fun () ->
+                   Lwt_io.flush out_c
+                 >>= fun () ->
+                   let pandocout = Filename.temp_file "" ".pdf" in (* Don't use Lwt_io since we need the file to have a ".pdf" suffix for pandoc *)
+                   let arr  = Array.of_list ["pandoc";"--from";"html";pandocin;"-s";"-o";pandocout] in
+                   Lwt_process.exec ("",arr)
+                 >>= fun _ -> (*TODO HANDLE ERRORS *)
+                   Lwt_io.with_file ~mode:Lwt_io.input pandocout Lwt_io.read
+                 >>= fun contents ->
+                   Sys.remove pandocout;
+                   Lwt.return @@
+                     Response { contents;
+                                content_type = "application/pdf";
+                                caching = Nocache }
+               )
       | Api.Exercise (token, id) ->
           (Exercise.Status.is_open id token >>= function
           | `Open | `Deadline _ as o ->
