@@ -84,6 +84,7 @@ let caching: type resp. resp Api.request -> caching = function
   | Api.Static ("css"::_ | "js"::_ | _ as p) -> Shortcache (Some p)
 
   | Api.Exercise _ -> Nocache
+  | Api.Pdf_of_exercises _ -> Shortcache (Some ["exercises.pdf"])
 
   | Api.Lesson_index () -> Shortcache (Some ["lessons"])
   | Api.Lesson id -> Shortcache (Some ["lesson";id])
@@ -401,7 +402,7 @@ module Request_handler = struct
                    Lwt.return @@
                      Response { contents;
                                 content_type = "application/pdf";
-                                caching = Nocache }
+                                caching = cache }
                )
       | Api.Exercise (token, id) ->
           (Exercise.Status.is_open id token >>= function
