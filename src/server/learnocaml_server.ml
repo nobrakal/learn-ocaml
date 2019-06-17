@@ -398,17 +398,22 @@ module Request_handler = struct
                  >>= fun () ->
                    Lwt_io.flush out_c
                  >>= fun () ->
-                   let pandocout = Filename.temp_file "" ".pdf" in (* Don't use Lwt_io since we need the file to have a ".pdf" suffix for pandoc *)
+                   let pandocout = Filename.temp_file "" ".pdf" in
                    let arr  = Array.of_list ["pandoc";"--from";"html";pandocin;"-s";"-o";pandocout] in
                    Lwt_process.exec ("",arr)
-                 >>= fun _ -> (*TODO HANDLE ERRORS *)
-                   Lwt_io.with_file ~mode:Lwt_io.input pandocout Lwt_io.read
-                 >>= fun contents ->
-                   Sys.remove pandocout;
-                   Lwt.return @@
-                     Response { contents;
-                                content_type = "application/pdf";
-                                caching = cache }
+                 >>= function
+                   | Unix.WEXITED 0 ->
+                      Lwt_io.with_file ~mode:Lwt_io.input pandocout Lwt_io.read
+                      >>= fun contents ->
+                      Sys.remove pandocout;
+                      Lwt.return @@
+                      Response { contents;
+                                 content_type = "application/pdf";
+                                 caching = cache }
+                   | _ ->
+                      Lwt.return @@
+                      Status {code = `Internal_server_error;
+                              body = "Pandoc exited abnormally"}
                )
       | Api.Exercise (token, id) ->
           (Exercise.Status.is_open id token >>= function
